@@ -1,0 +1,20 @@
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 247.565">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: #f4bf7f;
+      }
+
+      .cls-2 {
+        fill: #fc9cff;
+      }
+    </style>
+  </defs>
+  <rect id="centerWick" x="171.099" width="5.087" height="30.177"/>
+  <rect id="leftWick" x="71.099" width="5.087" height="30.177"/>
+  <rect id="rightWick" x="271.099" width="5.087" height="30.177"/>
+  <rect class="cls-1" x="157.831" y="15.088" width="30.422" height="67.943"/>
+  <rect class="cls-1" x="57.831" y="15.088" width="30.422" height="67.943"/>
+  <rect class="cls-1" x="257.831" y="15.088" width="30.422" height="67.943"/>
+  <rect class="cls-2" y="67.565" width="340" height="180"/>
+</svg>
