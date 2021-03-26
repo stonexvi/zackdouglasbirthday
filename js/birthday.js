@@ -481,7 +481,9 @@ function loadSvgData(config) {
     // load the svg data as a promise
     const svgPromise = new Promise((resolve, reject) => {
         $.get(path, (svgElement) => {
-            const svg = $(svgElement);
+            const svg = $(svgElement.documentElement);
+            console.log('SVG Element is: ', svgElement);
+            console.log('SVG is: ', svg);
             
             // get the wrapper container used for positioning
             const svgContainerElement = document.createElementNS(SVG_NAMESPACE, 'svg');
