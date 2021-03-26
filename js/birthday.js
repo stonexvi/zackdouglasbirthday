@@ -11,57 +11,32 @@ const AUDIO_FILES = {
 
 const audio = {};
 
-// collision detection
-const colliders = [
-    // {
-    //     radius: 10,
-    //     x: 500,
-    //     y: 175,
-    //     collisionEvent: () => {
-    //         const collided = animations.flameCenter;
-    //         collided.container.attr({
-    //             visibility: 'visible',
-    //         });
-    //         collided.animation.play();
-    //         audio.baker.play();
-    //     },
-    // }
-];
+// audio for mic input
+let audioContext = null;
+let METER = null;
+let RAF_ID = null;
+let MEDIA_STREAM_SOURCE = null;
+let AUDIO_REQUESTED = false;
 
-// animations
-const ANIMATION_CONFIGS = [
-    {
-        id: 'flameCenter',
-        animationDataId: 'flame',
-        scale: 12,
-        // playOnIdClick: 'wickCenter',
-        x: 450,
-        y: 75,
-        visibility: 'hidden',
-    },
-    {
-        id: 'flameBottom',
-        animationDataId: 'flame',
-        scale: 12,
-        x: 450,
-        y: 200,
-    },
-];
-const animations = {};
+// collision detection
+const colliders = [];
 
 // entities 
 const entities = {};
 
 
-// test 
-/**
- * Create global accessible variables that will be modified later
- */
- var audioContext = null;
- var meter = null;
- var rafID = null;
- var mediaStreamSource = null;
- let AUDIO_REQUESTED = false;
+// scene //
+
+// blowing out candles
+const BLOW_MIN = 0.01;
+const BLOW_MAX = 0.08;
+const BLOW_DURATION = 50;
+let blowDuration = 0;
+let graceBuffer = 5;
+
+// candles
+let CANDLES_UNLIT = 3;
+
 
 /**
  * Start 'er up
@@ -80,7 +55,6 @@ $(document).ready(function () {
         // Get an audio context
         audioContext = new AudioContext();
     });
-
 });
 
 /**
@@ -276,9 +250,6 @@ $(document).ready(function () {
                 radius: 50,
                 onCollision: (colliderId, collidedId) => {
                     lightCandle(colliderId, collidedId);
-                    if (!AUDIO_REQUESTED) {
-                        requestMicrophone();
-                    }
                 }
             },
 
@@ -305,6 +276,23 @@ function setupScene() {
     // debugColliders();
 }
 
+/**
+ * Actions after the cake is lit
+ */
+function triggerCakeLit() {
+    audio.baker.play();
+    audio.baker.addEventListener('ended', function() {
+        console.log('IT FINISHED');
+        requestMicrophone();
+    });
+}
+
+/**
+ * Light a Candle
+ * 
+ * @param {string} colliderId 
+ * @param {string} collidedId 
+ */
 function lightCandle(colliderId, collidedId) {
     const ignitionEntity = entities[colliderId];
 
@@ -335,6 +323,12 @@ function lightCandle(colliderId, collidedId) {
                 visibility: 'visible',
             });
             ignitionAnimation.play();
+
+            // check for all candles lit
+            CANDLES_UNLIT -= 1;
+            if (CANDLES_UNLIT <= 0) {
+                triggerCakeLit();
+            }
         }
     }
 }
@@ -482,8 +476,7 @@ function loadSvgData(config) {
     const svgPromise = new Promise((resolve, reject) => {
         $.get(path, (svgElement) => {
             const svg = $(svgElement.documentElement);
-            console.log('SVG Element is: ', svgElement);
-            console.log('SVG is: ', svg);
+            // const svg = $(svgElement);
             
             // get the wrapper container used for positioning
             const svgContainerElement = document.createElementNS(SVG_NAMESPACE, 'svg');
@@ -645,7 +638,7 @@ function makeDraggable(entity) {
     }
 }
 
-function debugColliders() {
+function debugCircles() {
     colliders.forEach((collider) => {
         const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
         const colliderEntity = entities[collider.entityId];
@@ -666,10 +659,6 @@ function debugColliders() {
     matchEntity.debugCollider = circle;
 
 }
-
-
-
-// test
  
  /**
   * Callback triggered if the microphone permission is denied
@@ -684,29 +673,61 @@ function debugColliders() {
  function onMicrophoneGranted(stream) {
      audioContext.resume();
      // Create an AudioNode from the stream.
-     mediaStreamSource = audioContext.createMediaStreamSource(stream);
+     MEDIA_STREAM_SOURCE = audioContext.createMediaStreamSource(stream);
      // Create a new volume meter and connect it.
-     meter = createAudioMeter(audioContext);
-     mediaStreamSource.connect(meter);
+     METER = createAudioMeter(audioContext);
+     MEDIA_STREAM_SOURCE.connect(METER);
  
-     // Trigger callback that shows the level of the "Volume Meter"
-     onLevelChange();
+     // Trigger callback that checks for blowing out the candles
+     checkBlowLevel();
+ }
+
+ /**
+  * Blow out all candles (by turning off their visibility for now)
+  */
+ function triggerBlowOut() {
+     entities.flameRight.animation.stop();
+     entities.flameRight.container.attr({
+         visibility: 'hidden',
+     });
+
+     entities.flameCenter.animation.stop();
+     entities.flameCenter.container.attr({
+         visibility: 'hidden',
+     });
+
+     entities.flameLeft.animation.stop();
+     entities.flameLeft.container.attr({
+         visibility: 'hidden',
+     });
  }
  
  /**
-  * This function is executed repeatedly
+  * Continually check the blow level until the candles are blown out
   */
- function onLevelChange(time) {
-     // check if we're currently clipping
- 
-     if (meter.checkClipping()) {
-         console.warn(meter.volume);
+ function checkBlowLevel(time) {
+     if (
+         METER.volume > BLOW_MIN
+         && METER.volume < BLOW_MAX
+     ) {
+         blowDuration += 1;
      } else {
-         console.log(meter.volume);
+         graceBuffer -= 1
+         if (graceBuffer <= 0) {
+            blowDuration = 0;
+            graceBuffer = 30;
+         }
+     }
+
+     if (blowDuration >= BLOW_DURATION) {
+         triggerBlowOut();
+
+         // exit the level check
+         return;
      }
  
      // set up the next callback
-     rafID = window.requestAnimationFrame(onLevelChange);
+     RAF_ID = window.requestAnimationFrame(checkBlowLevel);
  }
  
 
