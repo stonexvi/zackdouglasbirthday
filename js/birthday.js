@@ -6,7 +6,8 @@ let MAIN_CONTAINER = undefined;
 
 // audio
 const AUDIO_FILES = {
-    baker: 'assets/audio/baker.mp3',
+    zacky: 'assets/audio/zacky.mp3',
+    blowOut: 'assets/audio/blowOutCandles.mp3',
 };
 
 const audio = {};
@@ -17,6 +18,11 @@ let METER = null;
 let RAF_ID = null;
 let MEDIA_STREAM_SOURCE = null;
 let AUDIO_REQUESTED = false;
+
+
+// drag functionality
+let DRAG_ENTITY = null;
+let DRAG_OFFSET = null;
 
 // collision detection
 const colliders = [];
@@ -30,12 +36,20 @@ const entities = {};
 // blowing out candles
 const BLOW_MIN = 0.01;
 const BLOW_MAX = 0.08;
-const BLOW_DURATION = 50;
+const BLOW_DURATION = 20;
 let blowDuration = 0;
 let graceBuffer = 5;
 
 // candles
 let CANDLES_UNLIT = 3;
+
+/**
+ * Simple Sleep Helper for Async Functions
+ * @param {Number} ms 
+ */
+ function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
 
 
 /**
@@ -50,6 +64,8 @@ $(document).ready(function () {
     // initialize
     loadEntities().then(() => {
         setupScene();
+        registerWindowDragListeners();
+
         // Retrieve AudioContext with all the prefixes of the browsers
         window.AudioContext = window.AudioContext || window.webkitAudioContext;
         // Get an audio context
@@ -81,11 +97,59 @@ $(document).ready(function () {
             x: 500,
             y: 350,
         },
+        flags: {
+            // view offset
+            viewOffset: {
+                x: 500,
+                y: 300,
+            },
+
+            // data
+            svgData: {
+                path: 'assets/svg/flags.svg',
+            },
+
+            // custom
+            visibleHeight: 80,
+            hiddenHeight: -110,
+
+            // canvas
+            scale: 1.0,
+            x: 500,
+            y: -110,
+        },
+        matchBook: {
+            // view offset
+            viewOffset: {
+                x: 700,
+                y: 350,
+            },
+
+            // data
+            svgData: {
+                path: 'assets/svg/matchbook.svg',
+            },
+
+            // global collider
+            collider: {
+                circle: {
+                    radius: 75,
+                },
+                onCollision: (colliderId, collidedId) => {
+                    lightMatch(colliderId, collidedId);
+                }
+            },
+
+            // canvas
+            scale: 0.18,
+            x: 733.4,
+            y: 500.8,
+        },
         match: {
             // view offset
             viewOffset: {
-                x: 69.5,
-                y: 488,
+                x: 339,
+                y: 40,
             },
 
             // data
@@ -95,13 +159,58 @@ $(document).ready(function () {
 
             // drag
             dragCollider: {
-                radius: 65,
+                radius: 45,
             },
 
+            // parenting
+            children: {
+                // child entity of match
+                matchFlame: {            
+                    // view offset
+                    viewOffset: {
+                        x: 500,
+                        y: 325,
+                    },
+
+                    // data
+                    animationData: {
+                        id: 'flame',
+                    },
+
+                    // canvas
+                    scale: 0.07,
+                    xOffset: 0,
+                    yOffset: 0,
+                    visibility: 'hidden',
+                },
+                matchIgnition: {            
+                    // view offset
+                    viewOffset: {
+                        x: 500,
+                        y: 325,
+                    },
+
+                    // data
+                    animationData: {
+                        id: 'ignition',
+                        loop: false,
+                    },
+
+                    // canvas
+                    scale: 0.07,
+                    xOffset: 0,
+                    yOffset: 0,
+                    visibility: 'hidden',
+                },
+            },
+
+            // custom
+            ignited: false,
+
             // canvas
-            scale: 0.20,
-            x: 500,
-            y: 350,
+            scale: 0.16,
+            x: 725,
+            y: 435,
         },
 
         // candle flames
@@ -120,15 +229,15 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 360,
-            y: 150,
+            scale: 0.08,
+            x: 454.5,
+            y: 160,
             visibility: 'hidden',
         },
         flameLeftIgnition: {            
             // view offset
             viewOffset: {
-                x: 500,
+                x: 505,
                 y: 325,
             },
 
@@ -140,7 +249,9 @@ $(document).ready(function () {
 
             // global collider
             collider: {
-                radius: 50,
+                circle: {
+                    radius: 30,
+                },
                 onCollision: (colliderId, collidedId) => {
                     lightCandle(colliderId, collidedId);
                 }
@@ -153,9 +264,9 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 360,
-            y: 150,
+            scale: 0.08,
+            x: 454.5,
+            y: 160,
             visibility: 'hidden',
         },
 
@@ -163,7 +274,7 @@ $(document).ready(function () {
         flameCenter: {            
             // view offset
             viewOffset: {
-                x: 500,
+                x: 505,
                 y: 325,
             },
 
@@ -173,15 +284,15 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 505,
-            y: 150,
+            scale: 0.08,
+            x: 495.7,
+            y: 152,
             visibility: 'hidden',
         },
         flameCenterIgnition: {            
             // view offset
             viewOffset: {
-                x: 500,
+                x: 505,
                 y: 325,
             },
 
@@ -193,7 +304,9 @@ $(document).ready(function () {
 
             // global collider
             collider: {
-                radius: 50,
+                circle: {
+                    radius: 30,
+                },
                 onCollision: (colliderId, collidedId) => {
                     lightCandle(colliderId, collidedId);
                 }
@@ -206,9 +319,9 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 505,
-            y: 150,
+            scale: 0.08,
+            x: 495.7,
+            y: 152,
             visibility: 'hidden',
         },
 
@@ -217,7 +330,7 @@ $(document).ready(function () {
         flameRight: {            
             // view offset
             viewOffset: {
-                x: 500,
+                x: 505,
                 y: 325,
             },
 
@@ -227,15 +340,15 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 650,
-            y: 150,
+            scale: 0.08,
+            x: 536.7,
+            y: 160,
             visibility: 'hidden',
         },
         flameRightIgnition: {            
             // view offset
             viewOffset: {
-                x: 500,
+                x: 505,
                 y: 325,
             },
 
@@ -247,7 +360,9 @@ $(document).ready(function () {
 
             // global collider
             collider: {
-                radius: 50,
+                circle: {
+                    radius: 30,
+                },
                 onCollision: (colliderId, collidedId) => {
                     lightCandle(colliderId, collidedId);
                 }
@@ -260,10 +375,87 @@ $(document).ready(function () {
             },
 
             // canvas
-            scale: 0.16,
-            x: 650,
-            y: 150,
+            scale: 0.08,
+            x: 536.7,
+            y: 160,
             visibility: 'hidden',
+        },
+
+        // text
+        blowOutCandles: {
+            // view offset
+            viewOffset: {
+                x: 500,
+                y: 125,
+            },
+
+            // data
+            animationData: {
+                id: 'blowOutCandles',
+                loop: false,
+            },
+
+            // canvas
+            scale: 1.0,
+            x: 500,
+            y: 65,
+        },
+
+        dougs: {
+            // view offset
+            viewOffset: {
+                x: 500,
+                y: 125,
+            },
+
+            // data
+            animationData: {
+                id: 'dougs',
+                loop: false,
+            },
+
+            // canvas
+            scale: 1.0,
+            x: 500,
+            y: 60,
+        },
+
+        cantClick: {
+            // view offset
+            viewOffset: {
+                x: 500,
+                y: 125,
+            },
+
+            // data
+            animationData: {
+                id: 'cantClick',
+                loop: false,
+            },
+
+            // canvas
+            scale: 1.0,
+            x: 500,
+            y: 60,
+        },
+
+        needToBlow: {
+            // view offset
+            viewOffset: {
+                x: 500,
+                y: 125,
+            },
+
+            // data
+            animationData: {
+                id: 'needToBlow',
+                loop: false,
+            },
+
+            // canvas
+            scale: 1.0,
+            x: 500,
+            y: 60,
         },
 
     };
@@ -273,18 +465,187 @@ $(document).ready(function () {
 
 function setupScene() {
     // animations
-    // debugColliders();
+    // debugCircles();
+}
+
+/**
+ * Custom Animation for Moving the Flags Down
+ */
+function animateFlagsDown() {
+    const flagsEntity = entities.flags;
+    const flagsContainer = flagsEntity.container;
+
+    flagsContainer
+        .velocity(
+            {
+                y: flagsEntity.spaceToContainerY(flagsEntity.visibleHeight + 15),
+            },
+            { 
+                duration: 700, 
+                easing: 'ease',
+            }
+        )
+        .velocity(
+            {
+                y: flagsEntity.spaceToContainerY(flagsEntity.visibleHeight),
+            },
+            { 
+                duration: 400, 
+                easing: 'ease',
+            }
+        );
+}
+
+/**
+ * Custom Animation for Moving the Flags Back Up
+ */
+ function animateFlagsUp() {
+    const flagsEntity = entities.flags;
+    const flagsContainer = flagsEntity.container;
+
+    flagsContainer
+        .velocity(
+            {
+                y: flagsEntity.spaceToContainerY(flagsEntity.hiddenHeight),
+            },
+            { 
+                duration: 500, 
+                easing: 'ease',
+            }
+        );
+}
+
+function transitionToTease() {
+    // callback heck
+    const startTeaseTransition = () => {
+        entities.blowOutCandles.container.velocity('fadeOut', {
+            duration: 1000,
+            complete: dougsTransition,
+        });
+    };
+
+    const dougsTransition = () => {
+        entities.dougs.animation.play();
+        entities.dougs.animation.addEventListener('complete', function() {
+            entities.dougs.container.velocity('fadeOut', {
+                duration: 1000,
+                complete: cantClickTransition,
+            });
+        });
+    };
+
+    const cantClickTransition = () => {
+        entities.cantClick.animation.play();
+        entities.cantClick.animation.addEventListener('complete', function() {
+            entities.cantClick.container.velocity('fadeOut', {
+                duration: 1000,
+                complete: needToBlowTransition,
+            });
+        });
+    };
+
+    const needToBlowTransition = () => {
+        entities.needToBlow.animation.play();
+        entities.needToBlow.animation.addEventListener('complete', requestMicrophone);
+    };
+
+    startTeaseTransition();
+}
+
+/**
+ * Allow the candle flames to now be clickable
+ */
+function activateFlameClick() {
+    // sort of a hack, should have stored all candle flames in an iterable
+    entities.flameLeft.container.click(() => {
+        transitionToTease();
+    });
+
+    entities.flameCenter.container.click(() => {
+        transitionToTease();
+    });
+
+    entities.flameRight.container.click(() => {
+        transitionToTease();
+    });
+}
+
+/**
+ * Custom animation for the blow out request
+ */
+function animateBlowOutRequest() {
+    const blowOutAnimation = entities.blowOutCandles.animation;
+    blowOutAnimation.addEventListener('complete', function() {
+        activateFlameClick();
+    });
+
+    // play audio and then animation
+    audio.blowOut.play();
+    blowOutAnimation.play();
 }
 
 /**
  * Actions after the cake is lit
  */
-function triggerCakeLit() {
-    audio.baker.play();
-    audio.baker.addEventListener('ended', function() {
-        console.log('IT FINISHED');
-        requestMicrophone();
+async function triggerCakeLit() {
+    // fade match group
+    entities.match.container.velocity('fadeOut', {
+        duration: 2000,
     });
+    entities.match.childrenIds.forEach((childId) => {
+        entities[childId].container.velocity('fadeOut', {
+            duration: 2000,
+        });
+    });
+
+    // audio
+    audio.zacky.addEventListener('ended', async function() {
+        animateFlagsUp();
+        await sleep(1000);
+        animateBlowOutRequest();
+    });
+    audio.zacky.play();
+
+    // flags
+    await sleep(1800);
+    animateFlagsDown();
+}
+
+/**
+ * Light a Match
+ * 
+ * @param {string} colliderId 
+ * @param {string} collidedId 
+ */
+ function lightMatch(colliderId, collidedId) {
+    // only light for a match
+    if (collidedId === 'match') {
+        const matchEntity = entities.match;
+        const matchFlame = entities.matchFlame;
+        const matchIgnition = entities.matchIgnition;
+        
+        if (!matchEntity.ignited) {
+            console.log('IGNITING!!:  ', matchEntity.ignited);
+            // now we're ignited
+            matchEntity.ignited = true;
+
+            const ignitionAnimation = matchIgnition.animation;
+            ignitionAnimation.addEventListener('complete', () => {
+                matchFlame.container.attr({
+                    visibility: 'visible',
+                });
+                matchFlame.animation.play();
+                matchIgnition.container.attr({
+                    visibility: 'hidden',
+                });
+            });
+
+            matchIgnition.container.attr({
+                visibility: 'visible',
+            });
+            ignitionAnimation.play();
+        }
+    }
 }
 
 /**
@@ -297,7 +658,10 @@ function lightCandle(colliderId, collidedId) {
     const ignitionEntity = entities[colliderId];
 
     // only light for a match
-    if (collidedId === 'match') {
+    if (
+        collidedId === 'match'
+        && entities.match.ignited
+    ) {
         const {
             flameEntityId,
             ignited,
@@ -307,6 +671,10 @@ function lightCandle(colliderId, collidedId) {
         if (!ignited) {
             // now we're ignited
             ignitionEntity.ignition.ignited = true;
+
+            // move the match to on top (and the match flame on top of that)
+            MAIN_CONTAINER.appendChild(entities.match.container[0]);
+            MAIN_CONTAINER.appendChild(entities.matchFlame.container[0]);
 
             const ignitionAnimation = ignitionEntity.animation;
             ignitionAnimation.addEventListener('complete', () => {
@@ -333,7 +701,7 @@ function lightCandle(colliderId, collidedId) {
     }
 }
 
-function loadEntity(config) {
+function createEntity(config) {
     const {
         // required
         id,
@@ -399,9 +767,18 @@ function loadEntity(config) {
     if (collider) {
         const entityCollider = {
             entityId: id,
-            radius: collider.radius * scale,
-            onCollision: collider.onCollision,
+            ...collider,
         };
+
+        // scale
+        if (collider.circle) {
+            entityCollider.circle.radius = collider.circle.radius * scale;
+        }
+
+        if (collider.box) {
+            entityCollider.box.xRadius = collider.box.xRadius * scale;
+            entityCollider.box.yRadius = collider.box.yRadius * scale;
+        }
 
         colliders.push(entityCollider);
         entity.collider = entityCollider;
@@ -415,8 +792,54 @@ function loadEntity(config) {
         makeDraggable(entity);
     }
 
+    // check for children
+    if (config.children) {
+        entity.childrenIds = [];
+       Object.entries(config.children).forEach(([id, childConfig]) => {
+           childConfig.x = x - childConfig.xOffset;
+           childConfig.y = y - childConfig.yOffset;
+           loadEntity(id, childConfig);
+           entity.childrenIds.push(id);
+       });
+    }
+
 
     return entity;
+}
+
+async function loadEntity(id, config) {
+    // load the data
+    let container = null;
+    let svg = null;
+    let animation = null;
+
+   if (config.svgData) {
+       const loadedData = await loadSvgData(config.svgData);
+       ({
+           container,
+           svg,
+           animation
+        } = loadedData);
+    } else if (config.animationData) {
+       const loadedData = loadAnimationData(config.animationData); 
+       ({
+           container,
+           svg,
+           animation,
+        } = loadedData);
+    }
+
+    // create the entity 
+    const entity = createEntity({
+        id,
+        svg,
+        container,
+        animation,
+        ...config,
+    });
+
+    // set the entity
+    entities[id] = entity;
 }
 
 /**
@@ -425,38 +848,7 @@ function loadEntity(config) {
  async function loadEntities() {
      const entityConfigs = getEntityConfigs();
      for (const [id, config] of Object.entries(entityConfigs)) {
-         // load the data
-         let container = null;
-         let svg = null;
-         let animation = null;
-
-        if (config.svgData) {
-            const loadedData = await loadSvgData(config.svgData);
-            ({
-                container,
-                svg,
-                animation
-             } = loadedData);
-         } else if (config.animationData) {
-            const loadedData = loadAnimationData(config.animationData); 
-            ({
-                container,
-                svg,
-                animation,
-             } = loadedData);
-         }
-
-         // create the entity 
-         const entity = loadEntity({
-             id,
-             svg,
-             container,
-             animation,
-             ...config,
-         });
-
-         // set the entity
-         entities[id] = entity;
+         await loadEntity(id, config);
     };
 
     // load audio
@@ -573,91 +965,158 @@ function getCanvasMousePosition(evt, svg = MAIN_CONTAINER) {
       x: (event.clientX - CTM.e) / CTM.a,
       y: (event.clientY - CTM.f) / CTM.d
     };
-  }
+}
+
+/**
+ * Register Window Listeners for Drag
+ */
+function registerWindowDragListeners() {
+    // desktop
+    window.addEventListener('mousemove', onDrag);
+    window.addEventListener('mouseup', onEndDrag);
+    window.addEventListener('mouseleave', onEndDrag);
+
+    // mobile
+    window.addEventListener('touchmove', onDrag);
+    window.addEventListener('touchend', onEndDrag);
+    window.addEventListener('touchleave', onEndDrag);
+    window.addEventListener('touchcancel', onEndDrag);
+}
+
+/**
+ * Check for collisions
+ */
+function checkCollisions(dragEntity) {
+    // check collisions
+    colliders.forEach((collider) => {
+        const colliderEntity = entities[collider.entityId];
+        let collided = false;
+
+        // box
+        if (collider.box) {
+            const {
+                xRadius,
+                yRadius,
+            } = collider.box;
+
+            const xDistance = Math.abs(colliderEntity.x - dragEntity.x) - dragEntity.dragCollider.radius;
+            const yDistance = Math.abs(colliderEntity.y - dragEntity.y) - dragEntity.dragCollider.radius;
+
+            console.log('xDistance: ', xDistance);
+            console.log('yDistance: ', yDistance);
+
+            if (
+                xDistance < xRadius
+                && yDistance < yRadius
+            ) {
+                collided = true
+            }
+        }
+
+        // circle
+        if (collider.circle) {
+            collided = (Math.hypot(dragEntity.x - colliderEntity.x, dragEntity.y - colliderEntity.y) < (dragEntity.dragCollider.radius + collider.circle.radius));
+        }
+
+        // trigger the collider's collision callback if we've collided with it
+        if (collided) {
+            collider.onCollision(collider.entityId, dragEntity.id);
+        }
+    });
+}
+
+/**
+ * Handle Drag Event
+ * 
+ * @param {Event} evt 
+ */
+function onDrag(evt) {
+    if (DRAG_ENTITY) {
+        // get drag entity container
+        const container = DRAG_ENTITY.container[0];
+
+        evt.preventDefault();
+        const coord = getCanvasMousePosition(evt);
+        const canvasX = coord.x - DRAG_OFFSET.x;
+        const canvasY = coord.y - DRAG_OFFSET.y;
+        DRAG_ENTITY.x = DRAG_ENTITY.containerToSpaceX(canvasX);
+        DRAG_ENTITY.y = DRAG_ENTITY.containerToSpaceY(canvasY);
+        container.setAttributeNS(null, "x", canvasX);
+        container.setAttributeNS(null, "y", canvasY);
+
+        if (DRAG_ENTITY.childrenIds) {
+            DRAG_ENTITY.childrenIds.forEach((id) => {
+                const childEntity = entities[id];
+                const childContainer = childEntity.container[0];
+                childEntity.x = DRAG_ENTITY.x - childEntity.xOffset;
+                childEntity.y = DRAG_ENTITY.y - childEntity.yOffset;
+                childContainer.setAttributeNS(null, "x", childEntity.spaceToContainerX(childEntity.x));
+                childContainer.setAttributeNS(null, "y", childEntity.spaceToContainerY(childEntity.y));
+            });
+        }
+
+        if (DRAG_ENTITY.debugCircle) {
+            DRAG_ENTITY.debugCircle.setAttributeNS(null, 'cx', DRAG_ENTITY.x);
+            DRAG_ENTITY.debugCircle.setAttributeNS(null, 'cy', DRAG_ENTITY.y);
+        }
+
+        checkCollisions(DRAG_ENTITY);
+    }
+}
+
+/**
+ * Handle End-Of-Drag Event
+ * 
+ * @param {Event} evt 
+ */
+function onEndDrag(evt) {
+    DRAG_ENTITY = null;
+    DRAG_OFFSET = null;
+}
 
 /**
  * Make an SVG draggable
  */
 function makeDraggable(entity) {
-    // turn local variables into state storage via closure
-    let selectedElement = null;
-    let offset = null;
-
     const container = entity.container[0];
 
     // desktop
     container.addEventListener('mousedown', startDrag);
-    container.addEventListener('mousemove', drag);
-    container.addEventListener('mouseup', endDrag);
-    container.addEventListener('mouseleave', endDrag);
 
     // mobile
     container.addEventListener('touchstart', startDrag);
-    container.addEventListener('touchmove', drag);
-    container.addEventListener('touchend', endDrag);
-    container.addEventListener('touchleave', endDrag);
-    container.addEventListener('touchcancel', endDrag);
 
     function startDrag(evt) {
-        selectedElement = container;
-        offset = getCanvasMousePosition(evt);
-        offset.x -= parseFloat(selectedElement.getAttributeNS(null, "x"));
-        offset.y -= parseFloat(selectedElement.getAttributeNS(null, "y"));
-      }
-
-    function drag(evt) {
-        if (selectedElement) {
-            evt.preventDefault();
-            const coord = getCanvasMousePosition(evt);
-            const canvasX = coord.x - offset.x;
-            const canvasY = coord.y - offset.y;
-            entity.x = entity.containerToSpaceX(canvasX);
-            entity.y = entity.containerToSpaceY(canvasY);
-            selectedElement.setAttributeNS(null, "x", canvasX);
-            selectedElement.setAttributeNS(null, "y", canvasY);
-
-            if (entity.debugCollider) {
-                entity.debugCollider.setAttributeNS(null, 'cx', entity.x);
-                entity.debugCollider.setAttributeNS(null, 'cy', entity.y);
-            }
-
-            // check collisions
-            colliders.forEach((collider) => {
-                const colliderEntity = entities[collider.entityId];
-                const collided = (Math.hypot(entity.x - colliderEntity.x, entity.y - colliderEntity.y) < (entity.dragCollider.radius + collider.radius));
-
-                if (collided) {
-                    collider.onCollision(collider.entityId, entity.id);
-                }
-            });
-        }
-    }
-
-    function endDrag(evt) {
-        selectedElement = null;
+        DRAG_ENTITY = entity;
+        DRAG_OFFSET = getCanvasMousePosition(evt);
+        DRAG_OFFSET.x -= parseFloat(container.getAttributeNS(null, "x"));
+        DRAG_OFFSET.y -= parseFloat(container.getAttributeNS(null, "y"));
     }
 }
 
 function debugCircles() {
-    colliders.forEach((collider) => {
+    Object.entries(entities).forEach(([id, entity]) => {
         const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
-        const colliderEntity = entities[collider.entityId];
-        circle.setAttributeNS(null, 'cx', colliderEntity.x);
-        circle.setAttributeNS(null, 'cy', colliderEntity.y);
-        circle.setAttributeNS(null, 'r', collider.radius);
+        circle.setAttributeNS(null, 'id', `${id}-circle`);
+        circle.setAttributeNS(null, 'cx', entity.x);
+        circle.setAttributeNS(null, 'cy', entity.y);
+
+        // default radius
+        let radius = 3;
+
+        if (
+            entity.collider
+            && entity.collider.circle
+        ) {
+            radius = entity.collider.circle.radius;
+        } else if (entity.dragCollider) {
+            radius = entity.dragCollider.radius;
+        }
+        circle.setAttributeNS(null, 'r', radius);
         circle.setAttributeNS(null, 'style', 'fill: blue;' );
         MAIN_CONTAINER.appendChild(circle);
+        entity.debugCircle = circle;
     });
-
-    const circle = document.createElementNS(SVG_NAMESPACE, 'circle');
-        const matchEntity = entities.match;
-        circle.setAttributeNS(null, 'cx', matchEntity.x);
-        circle.setAttributeNS(null, 'cy', matchEntity.y);
-        circle.setAttributeNS(null, 'r', matchEntity.dragCollider.radius);
-        circle.setAttributeNS(null, 'style', 'fill: blue;' );
-        MAIN_CONTAINER.appendChild(circle);
-    matchEntity.debugCollider = circle;
-
 }
  
  /**
