@@ -35,7 +35,7 @@ const entities = {};
 
 // blowing out candles
 const BLOW_MIN = 0.01;
-const BLOW_MAX = 0.08;
+const BLOW_MAX = 0.065;
 const BLOW_DURATION = 20;
 let blowDuration = 0;
 let graceBuffer = 5;
@@ -1118,8 +1118,10 @@ function debugCircles() {
  /**
   * Callback triggered if the microphone permission is denied
   */
- function onMicrophoneDenied() {
-     alert('Stream generation failed.');
+ async function onMicrophoneDeniedOrError() {
+    // wait a second and then trigger the blow out
+    await sleep(5000);
+    triggerBlowOut();
  }
  
  /**
@@ -1140,7 +1142,7 @@ function debugCircles() {
  /**
   * Blow out all candles (by turning off their visibility for now)
   */
- function triggerBlowOut() {
+ async function triggerBlowOut() {
      entities.flameRight.animation.stop();
      entities.flameRight.container.attr({
          visibility: 'hidden',
@@ -1154,6 +1156,13 @@ function debugCircles() {
      entities.flameLeft.animation.stop();
      entities.flameLeft.container.attr({
          visibility: 'hidden',
+     });
+
+     entities.needToBlow.container.velocity('fadeOut', {
+         duration: 2000,
+         complete: () => {
+            window.location.href = 'https://squareup.com/gift/ET1W0P16PYDSE/order';
+         },
      });
  }
  
@@ -1186,32 +1195,35 @@ function debugCircles() {
  }
  
 
- function requestMicrophone() {
+async function requestMicrophone() {
     AUDIO_REQUESTED = true;
     // Try to get access to the microphone
     try {
-    
-        // Retrieve getUserMedia API with all the prefixes of the browsers
-        navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-    
-        // Ask for an audio input
-        navigator.getUserMedia(
-            {
-                "audio": {
-                    "mandatory": {
-                        "googEchoCancellation": "false",
-                        "googAutoGainControl": "false",
-                        "googNoiseSuppression": "false",
-                        "googHighpassFilter": "false"
-                    },
-                    "optional": []
-                },
-            },
-            onMicrophoneGranted,
-            onMicrophoneDenied
-        );
+        const mediaConstraints = {
+            audio: true,
+        };
+
+        // better ways to check for support than a nested catch, but oh well
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+            onMicrophoneGranted(stream);
+        } catch (e) {
+            if (!(e.name === 'NotAllowedError')) {
+                // Retrieve the legacy getUserMedia API with all the prefixes of the browsers
+                navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        
+                // Ask for an audio input
+                navigator.getUserMedia(
+                    mediaConstraints,
+                    onMicrophoneGranted,
+                    onMicrophoneDeniedOrError
+                );
+            } else {
+                throw e;
+            }
+        }
     } catch (e) {
-        alert('getUserMedia threw exception :' + e);
+        onMicrophoneDeniedOrError();
     }
 }
 
