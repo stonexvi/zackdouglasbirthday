@@ -27,7 +27,5 @@ function getAnimationData(key) {
         }
     }
 
-    console.log('Animation Data is: ', animationData);
-
     return animationData;
 };

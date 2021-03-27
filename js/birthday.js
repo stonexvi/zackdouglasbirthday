@@ -625,7 +625,6 @@ async function triggerCakeLit() {
         const matchIgnition = entities.matchIgnition;
         
         if (!matchEntity.ignited) {
-            console.log('IGNITING!!:  ', matchEntity.ignited);
             // now we're ignited
             matchEntity.ignited = true;
 
@@ -1001,9 +1000,6 @@ function checkCollisions(dragEntity) {
 
             const xDistance = Math.abs(colliderEntity.x - dragEntity.x) - dragEntity.dragCollider.radius;
             const yDistance = Math.abs(colliderEntity.y - dragEntity.y) - dragEntity.dragCollider.radius;
-
-            console.log('xDistance: ', xDistance);
-            console.log('yDistance: ', yDistance);
 
             if (
                 xDistance < xRadius
