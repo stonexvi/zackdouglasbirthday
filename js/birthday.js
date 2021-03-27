@@ -43,6 +43,9 @@ let graceBuffer = 5;
 // candles
 let CANDLES_UNLIT = 3;
 
+// tease
+let TRANSITIONED_TO_TEASE = false;
+
 /**
  * Simple Sleep Helper for Async Functions
  * @param {Number} ms 
@@ -270,6 +273,26 @@ $(document).ready(function () {
             visibility: 'hidden',
         },
 
+        flameLeftOut: {            
+            // view offset
+            viewOffset: {
+                x: 505,
+                y: 325,
+            },
+
+            // data
+            animationData: {
+                id: 'flameOut',
+                loop: false,
+            },
+
+            // canvas
+            scale: 0.08,
+            x: 454.5,
+            y: 160,
+            visibility: 'hidden',
+        },
+
         // center
         flameCenter: {            
             // view offset
@@ -316,6 +339,26 @@ $(document).ready(function () {
             ignition: {
                 flameEntityId: 'flameCenter',
                 ignited: false,
+            },
+
+            // canvas
+            scale: 0.08,
+            x: 495.7,
+            y: 152,
+            visibility: 'hidden',
+        },
+
+        flameCenterOut: {            
+            // view offset
+            viewOffset: {
+                x: 505,
+                y: 325,
+            },
+
+            // data
+            animationData: {
+                id: 'flameOut',
+                loop: false,
             },
 
             // canvas
@@ -372,6 +415,26 @@ $(document).ready(function () {
             ignition: {
                 flameEntityId: 'flameRight',
                 ignited: false,
+            },
+
+            // canvas
+            scale: 0.08,
+            x: 536.7,
+            y: 160,
+            visibility: 'hidden',
+        },
+
+        flameRightOut: {            
+            // view offset
+            viewOffset: {
+                x: 505,
+                y: 325,
+            },
+
+            // data
+            animationData: {
+                id: 'flameOut',
+                loop: false,
             },
 
             // canvas
@@ -516,40 +579,44 @@ function animateFlagsDown() {
 }
 
 function transitionToTease() {
-    // callback heck
-    const startTeaseTransition = () => {
-        entities.blowOutCandles.container.velocity('fadeOut', {
-            duration: 1000,
-            complete: dougsTransition,
-        });
-    };
+    if (!TRANSITIONED_TO_TEASE) {
+        TRANSITIONED_TO_TEASE = true;
 
-    const dougsTransition = () => {
-        entities.dougs.animation.play();
-        entities.dougs.animation.addEventListener('complete', function() {
-            entities.dougs.container.velocity('fadeOut', {
+        // callback heck
+        const startTeaseTransition = () => {
+            entities.blowOutCandles.container.velocity('fadeOut', {
                 duration: 1000,
-                complete: cantClickTransition,
+                complete: dougsTransition,
             });
-        });
-    };
+        };
 
-    const cantClickTransition = () => {
-        entities.cantClick.animation.play();
-        entities.cantClick.animation.addEventListener('complete', function() {
-            entities.cantClick.container.velocity('fadeOut', {
-                duration: 1000,
-                complete: needToBlowTransition,
+        const dougsTransition = () => {
+            entities.dougs.animation.play();
+            entities.dougs.animation.addEventListener('complete', function() {
+                entities.dougs.container.velocity('fadeOut', {
+                    duration: 1000,
+                    complete: cantClickTransition,
+                });
             });
-        });
-    };
+        };
 
-    const needToBlowTransition = () => {
-        entities.needToBlow.animation.play();
-        entities.needToBlow.animation.addEventListener('complete', requestMicrophone);
-    };
+        const cantClickTransition = () => {
+            entities.cantClick.animation.play();
+            entities.cantClick.animation.addEventListener('complete', function() {
+                entities.cantClick.container.velocity('fadeOut', {
+                    duration: 1000,
+                    complete: needToBlowTransition,
+                });
+            });
+        };
 
-    startTeaseTransition();
+        const needToBlowTransition = () => {
+            entities.needToBlow.animation.play();
+            entities.needToBlow.animation.addEventListener('complete', requestMicrophone);
+        };
+
+        startTeaseTransition();
+    }
 }
 
 /**
@@ -1147,16 +1214,28 @@ function debugCircles() {
      entities.flameRight.container.attr({
          visibility: 'hidden',
      });
+     entities.flameRightOut.container.attr({
+         visibility: 'visible',
+     });
+     entities.flameRightOut.animation.play();
 
      entities.flameCenter.animation.stop();
      entities.flameCenter.container.attr({
          visibility: 'hidden',
      });
+     entities.flameCenterOut.container.attr({
+        visibility: 'visible',
+    });
+    entities.flameCenterOut.animation.play();
 
      entities.flameLeft.animation.stop();
      entities.flameLeft.container.attr({
          visibility: 'hidden',
      });
+     entities.flameLeftOut.container.attr({
+        visibility: 'visible',
+    });
+    entities.flameLeftOut.animation.play();
 
      entities.needToBlow.container.velocity('fadeOut', {
          duration: 2000,
